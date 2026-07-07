@@ -4,19 +4,83 @@ import { schemes as schemesTable } from "../db/schema";
 import type { Scheme, EligibilityItem, MatchLevel } from "../../data/schemes";
 
 /**
+ * Dynamically computes the match level of a scheme for a specific profile category.
+ */
+export function computeMatchLevel(schemeCategory: string, schemeId: string, profileCategory?: string | null): MatchLevel {
+  if (!profileCategory) return "medium"; // default fallback
+
+  const pCat = profileCategory.trim();
+  const sCat = schemeCategory.trim();
+
+  // Universal schemes that are eligible for every citizen (high match for all)
+  const generalSchemes = ["ayushman-bharat", "pm-suraksha-bima", "pm-jeevan-jyoti", "digital-india", "digilocker", "pm-garib-kalyan"];
+  if (generalSchemes.includes(schemeId)) {
+    return "high";
+  }
+
+  // Profile category to Scheme category mapping rules
+  const mapping: Record<string, string[]> = {
+    Student: ["Students", "Education"],
+    Farmer: ["Farmers"],
+    "Senior Citizen": ["Senior Citizens", "Health"],
+    "Job Seeker": ["Education", "Business"],
+    "Woman Entrepreneur": ["Women", "Business"],
+    "Small Business Owner": ["Business"],
+  };
+
+  const matchedCategories = mapping[pCat] || [];
+  if (matchedCategories.includes(sCat)) {
+    return "high";
+  }
+
+  return "low"; // Low match if no demographic overlap
+}
+
+/**
  * Convert a DB row to the frontend Scheme type.
  * This ensures API responses match the existing frontend type exactly.
  */
-function rowToScheme(row: typeof schemesTable.$inferSelect): Scheme {
+function rowToScheme(row: typeof schemesTable.$inferSelect, profileCategory?: string | null): Scheme {
+  const defaultEligibility = JSON.parse(row.eligibilityJson) as EligibilityItem[];
+  const category = row.category as Scheme["category"];
+  const id = row.id;
+
+  // Dynamically calculate match level
+  const match = computeMatchLevel(category, id, profileCategory);
+
+  // Dynamically calculate eligibility rules met status based on demographic class match
+  const eligibility = defaultEligibility.map((item) => {
+    const labelLower = item.label.toLowerCase();
+    const isStudentPrereq = labelLower.includes("student");
+    const isFarmerPrereq = labelLower.includes("farmer") || labelLower.includes("landholding");
+    const isWomanPrereq = labelLower.includes("girl") || labelLower.includes("woman") || labelLower.includes("entrepreneur");
+    const isSeniorPrereq = labelLower.includes("60") || labelLower.includes("retirement");
+
+    let met = item.met;
+
+    if (profileCategory) {
+      if (isStudentPrereq && profileCategory !== "Student") met = false;
+      if (isStudentPrereq && profileCategory === "Student") met = true;
+      if (isFarmerPrereq && profileCategory !== "Farmer") met = false;
+      if (isFarmerPrereq && profileCategory === "Farmer") met = true;
+      if (isWomanPrereq && profileCategory !== "Woman Entrepreneur") met = false;
+      if (isWomanPrereq && profileCategory === "Woman Entrepreneur") met = true;
+      if (isSeniorPrereq && profileCategory !== "Senior Citizen") met = false;
+      if (isSeniorPrereq && profileCategory === "Senior Citizen") met = true;
+    }
+
+    return { ...item, met };
+  });
+
   return {
     id: row.id,
     name: row.name,
     shortName: row.shortName ?? undefined,
-    category: row.category as Scheme["category"],
+    category: category,
     tagline: row.tagline,
     overview: row.overview,
-    match: row.matchDefault as MatchLevel,
-    eligibility: JSON.parse(row.eligibilityJson) as EligibilityItem[],
+    match,
+    eligibility,
     documents: JSON.parse(row.documentsJson) as string[],
     resources: JSON.parse(row.resourcesJson) as Scheme["resources"],
     ministry: row.ministry,
@@ -29,6 +93,7 @@ function rowToScheme(row: typeof schemesTable.$inferSelect): Scheme {
 export async function listSchemes(opts?: {
   category?: string;
   q?: string;
+  profileCategory?: string | null;
 }): Promise<{ schemes: Scheme[]; total: number }> {
   const db = getDb();
   let rows = await db.select().from(schemesTable);
@@ -50,14 +115,14 @@ export async function listSchemes(opts?: {
     );
   }
 
-  const schemes = rows.map(rowToScheme);
+  const schemes = rows.map((row) => rowToScheme(row, opts?.profileCategory));
   return { schemes, total: schemes.length };
 }
 
 /**
  * Get a single scheme by ID.
  */
-export async function getSchemeById(id: string): Promise<Scheme | null> {
+export async function getSchemeById(id: string, profileCategory?: string | null): Promise<Scheme | null> {
   const db = getDb();
   const rows = await db
     .select()
@@ -65,7 +130,7 @@ export async function getSchemeById(id: string): Promise<Scheme | null> {
     .where(eq(schemesTable.id, id));
 
   const row = rows[0];
-  return row ? rowToScheme(row) : null;
+  return row ? rowToScheme(row, profileCategory) : null;
 }
 
 /**
@@ -106,6 +171,6 @@ export async function getRecommendedSchemeIds(profileCategory?: string | null): 
     }
   }
 
-  // Default popular schemes
-  return ["pm-scholarship", "ayushman-bharat", "pm-kisan"];
+  // Default popular schemes (featuring our general, eligible-for-all schemes)
+  return ["pm-suraksha-bima", "pm-jeevan-jyoti", "digilocker"];
 }

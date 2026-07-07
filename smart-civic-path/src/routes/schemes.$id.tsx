@@ -13,7 +13,8 @@ import { TrustBadge } from "@/components/trust-badge";
 import { useCopilot } from "@/components/copilot-context";
 import { getScheme, type EligibilityItem } from "@/data/schemes";
 import { SchemeDetailSkeleton } from "@/components/skeletons";
-
+import { useQuery } from "@tanstack/react-query";
+import { getProfile } from "@/server/api/profile";
 import { fetchSchemeById } from "@/server/api/schemes";
 
 export const Route = createFileRoute("/schemes/$id")({
@@ -54,9 +55,38 @@ function Section({
   );
 }
 
+function getSessionId(): string {
+  if (typeof window === "undefined") return "__ssr__";
+  let id = localStorage.getItem("sb_session_id");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("sb_session_id", id);
+  }
+  return id;
+}
+
 function SchemeDetail() {
-  const { scheme } = Route.useLoaderData();
+  const loaderData = Route.useLoaderData();
   const { openCopilot } = useCopilot();
+  const sessionId = getSessionId();
+
+  const { data: profileData } = useQuery({
+    queryKey: ["profile", sessionId],
+    queryFn: () => getProfile({ data: { sessionId } }),
+  });
+
+  const profileCategory = profileData?.profile?.category;
+
+  const { data: schemeData } = useQuery({
+    queryKey: ["scheme", loaderData.scheme.id, profileCategory],
+    queryFn: async () => {
+      const res = await fetchSchemeById({ data: { id: loaderData.scheme.id, profileCategory: profileCategory || undefined } });
+      return res.scheme;
+    },
+    initialData: loaderData.scheme,
+  });
+
+  const scheme = schemeData || loaderData.scheme;
 
   const askAboutScheme = () =>
     openCopilot({

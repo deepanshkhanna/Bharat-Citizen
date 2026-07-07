@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Sparkles,
@@ -21,6 +22,14 @@ import type { Scheme } from "@/data/schemes";
 import { fetchSchemes, fetchRecommendedSchemes } from "@/server/api/schemes";
 import { getRecentActivity } from "@/server/api/activity";
 import { getProfile } from "@/server/api/profile";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -318,6 +327,7 @@ function SectionHeader({
 
 function Home() {
   const sessionId = getSessionId();
+  const [showNudgeDialog, setShowNudgeDialog] = useState(false);
 
   const { data: profileData } = useQuery({
     queryKey: ["profile", sessionId],
@@ -342,6 +352,12 @@ function Home() {
     queryFn: () => getRecentActivity({ data: { sessionId } }),
   });
 
+  useEffect(() => {
+    if (profileData && !profileData.profile?.onboardingDone) {
+      setShowNudgeDialog(true);
+    }
+  }, [profileData]);
+
   return (
     <div className="mx-auto max-w-6xl px-5 py-8 md:px-10 md:py-12">
       <Hero />
@@ -353,6 +369,37 @@ function Home() {
       />
       <PopularServices />
       <RecentActivity activity={activityData?.activity} />
+
+      <Dialog open={showNudgeDialog} onOpenChange={setShowNudgeDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-saffron/15 text-saffron">
+              <UserPlus className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-center text-xl mt-3">Complete Your Civic Profile</DialogTitle>
+            <DialogDescription className="text-center text-sm mt-2">
+              Unlock personalized welfare scheme recommendations, dynamic eligibility checks, and step-by-step guidance tailored to your demographic group.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <ul className="space-y-2.5 text-sm text-foreground/80">
+              <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-saffron" /> Personalized Scheme Matching</li>
+              <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-saffron" /> Native Indian Language Support</li>
+              <li className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-saffron" /> Auto-routed Civic Complaint Tracking</li>
+            </ul>
+          </div>
+          <DialogFooter className="sm:justify-center flex gap-2">
+            <Button variant="outline" onClick={() => setShowNudgeDialog(false)} className="rounded-full flex-1">
+              Skip for Now
+            </Button>
+            <Button asChild className="rounded-full bg-saffron text-saffron-foreground hover:bg-saffron/90 flex-1">
+              <Link to="/profile" onClick={() => setShowNudgeDialog(false)}>
+                Set Up Profile
+              </Link>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

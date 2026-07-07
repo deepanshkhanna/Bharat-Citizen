@@ -6,9 +6,17 @@ import type { AppDb } from "./index";
 import { schemes as staticSchemes } from "../../data/schemes";
 
 export async function seedSchemes(db: AppDb) {
-  // Check if schemes already exist
+  // Check if schemes already exist and match length of static ones
   const existing = await db.select({ value: count() }).from(schemesTable);
-  if (existing && existing[0]?.value > 0) return;
+  const dbCount = existing && existing[0]?.value ? existing[0].value : 0;
+  
+  if (dbCount === staticSchemes.length) return;
+
+  // Clear existing if count doesn't match to allow updates to populate
+  if (dbCount > 0) {
+    console.log(`[seed] Count mismatch (${dbCount} vs ${staticSchemes.length}), cleaning up old schemes...`);
+    await db.delete(schemesTable);
+  }
 
   const now = Math.floor(Date.now() / 1000);
 

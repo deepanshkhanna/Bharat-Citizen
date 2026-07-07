@@ -10,6 +10,7 @@ import type { Scheme } from "@/data/schemes";
 import { MatchBadge } from "@/components/match-badge";
 import { cn } from "@/lib/utils";
 import { fetchSchemes } from "@/server/api/schemes";
+import { getProfile } from "@/server/api/profile";
 import { SchemesSkeleton } from "@/components/skeletons";
 
 export const Route = createFileRoute("/schemes")({
@@ -26,18 +27,37 @@ export const Route = createFileRoute("/schemes")({
   component: SchemesPage,
 });
 
+function getSessionId(): string {
+  if (typeof window === "undefined") return "__ssr__";
+  let id = localStorage.getItem("sb_session_id");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("sb_session_id", id);
+  }
+  return id;
+}
+
 function SchemesPage() {
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<Scheme["category"] | null>(null);
   const { openCopilot } = useCopilot();
+  const sessionId = getSessionId();
+
+  const { data: profileData } = useQuery({
+    queryKey: ["profile", sessionId],
+    queryFn: () => getProfile({ data: { sessionId } }),
+  });
+
+  const profileCategory = profileData?.profile?.category;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["schemes", activeCategory, query],
+    queryKey: ["schemes", activeCategory, query, profileCategory],
     queryFn: () =>
       fetchSchemes({
         data: {
           category: activeCategory || undefined,
           q: query || undefined,
+          profileCategory: profileCategory || undefined,
         },
       }),
   });

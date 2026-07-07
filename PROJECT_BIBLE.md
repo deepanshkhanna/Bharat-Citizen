@@ -546,6 +546,7 @@ smart-civic-path/
 * **2026-07-07**: Switched database from SQLite to Supabase Postgres using Drizzle ORM pg-core adapter.
 * **2026-07-07**: Added HMR support for env loaders and configured native fallback APIs for Groq/OpenRouter/OpenAI.
 * **2026-07-07**: Developed the complaints wizard, timeline tracking components, and completed the first Git push to origin main.
+* **2026-07-07**: Implemented automatic profile nudge popup modal on Home dashboard load, restricted match badges unless profile is onboardingDone, implemented dynamic eligibility checks/matching on schemes based on user category, added 5 universally applicable schemes, and removed all "Demo Ready" placeholders for launch.
 
 ---
 

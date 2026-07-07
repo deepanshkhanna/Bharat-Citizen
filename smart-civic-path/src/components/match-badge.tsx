@@ -1,5 +1,7 @@
 import { cn } from "@/lib/utils";
 import type { MatchLevel } from "@/data/schemes";
+import { useQuery } from "@tanstack/react-query";
+import { getProfile } from "@/server/api/profile";
 
 const config: Record<MatchLevel, { label: string; dot: string; className: string }> = {
   high: {
@@ -19,7 +21,25 @@ const config: Record<MatchLevel, { label: string; dot: string; className: string
   },
 };
 
+function getSessionId(): string {
+  if (typeof window === "undefined") return "__ssr__";
+  return localStorage.getItem("sb_session_id") || "";
+}
+
 export function MatchBadge({ level, className }: { level: MatchLevel; className?: string }) {
+  const sessionId = getSessionId();
+  const { data: profileData } = useQuery({
+    queryKey: ["profile", sessionId],
+    queryFn: () => getProfile({ data: { sessionId } }),
+    enabled: typeof window !== "undefined",
+  });
+
+  const onboardingDone = profileData?.profile?.onboardingDone;
+
+  if (!onboardingDone) {
+    return null; // Do not show any match if profile is not updated
+  }
+
   const c = config[level];
   return (
     <span
@@ -29,7 +49,7 @@ export function MatchBadge({ level, className }: { level: MatchLevel; className?
         className,
       )}
     >
-      <span className={cn("h-1.5 w-1.5 rounded-full", c.dot)} />
+      <span className={cn("bg-success h-1.5 w-1.5 rounded-full", c.dot)} />
       {c.label}
     </span>
   );

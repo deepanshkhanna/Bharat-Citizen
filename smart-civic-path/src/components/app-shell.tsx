@@ -72,10 +72,10 @@ function DesktopSidebar({ pathname }: { pathname: string }) {
       <div className="mt-auto rounded-2xl border border-border bg-surface p-4">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-success" />
-          <span className="text-xs font-semibold text-foreground">Demo Ready</span>
+          <span className="text-xs font-semibold text-foreground">Active Connection</span>
         </div>
         <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-          Preloaded citizen scenarios available for demonstrations.
+          Connected to the national welfare network and local municipal divisions.
         </p>
       </div>
     </aside>
@@ -88,7 +88,7 @@ function MobileTopBar() {
       <BrandMark />
       <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
         <span className="h-1.5 w-1.5 rounded-full bg-success" />
-        Demo Ready
+        Live Connection
       </span>
     </header>
   );
