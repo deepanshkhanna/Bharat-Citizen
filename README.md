@@ -30,17 +30,17 @@ Smart Bharat unifies the entire civic lifecycle into a single, mobile-responsive
 ### 1. Home Dashboard
 *Personalized recommendations automatically adapt when a user updates their demographic profile class.*
 
-![Home Dashboard Screenshot](docs/images/home_dashboard.png)
+![Home Dashboard Screenshot](DOCS/images/Dashboard.png)
 
 ### 2. Schemes Index & Dynamic Queries
 *Search state and central welfare offerings by category and get instant match ratings.*
 
-![Schemes Directory Screenshot](docs/images/schemes_list.png)
+![Schemes Directory Screenshot](DOCS/images/Schemes.png)
 
-### 3. Contextual AI Chat Companion
-*Floating assistant drawer slides open and automatically ingests page context to answer queries.*
+### 3. Complaints & Recourse Tracking
+*Submit civic issues and track them in real-time on a visual timeline.*
 
-![AI Chat Drawer Screenshot](docs/images/copilot_chat.png)
+![Complaints Tracking Screenshot](DOCS/images/Complaints.png)
 
 ---
 
