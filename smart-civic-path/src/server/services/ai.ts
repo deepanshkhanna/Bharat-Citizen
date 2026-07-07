@@ -1,45 +1,5 @@
 import OpenAI from "openai";
 
-let _client: OpenAI | undefined;
-let _modelName = "gpt-4o-mini";
-
-function getClient(): OpenAI {
-  if (!_client) {
-    const groqKey = process.env.GROQ_API_KEY;
-    const openrouterKey = process.env.OPENROUTER_API_KEY;
-    const openaiKey = process.env.OPENAI_API_KEY;
-
-    if (groqKey) {
-      console.log("[ai] Initializing Groq client");
-      _client = new OpenAI({
-        apiKey: groqKey,
-        baseURL: "https://api.groq.com/openai/v1",
-      });
-      _modelName = process.env.AI_MODEL || "llama-3.3-70b-versatile";
-    } else if (openrouterKey) {
-      console.log("[ai] Initializing OpenRouter client");
-      _client = new OpenAI({
-        apiKey: openrouterKey,
-        baseURL: "https://openrouter.ai/api/v1",
-        defaultHeaders: {
-          "HTTP-Referer": "http://localhost:5173",
-          "X-Title": "Smart Bharat",
-        },
-      });
-      _modelName = process.env.AI_MODEL || "google/gemini-2.5-flash:free";
-    } else if (openaiKey) {
-      console.log("[ai] Initializing OpenAI client");
-      _client = new OpenAI({ apiKey: openaiKey });
-      _modelName = process.env.AI_MODEL || "gpt-4o-mini";
-    } else {
-      throw new Error(
-        "No AI API keys found. Please set either GROQ_API_KEY, OPENROUTER_API_KEY, or OPENAI_API_KEY in your environment."
-      );
-    }
-  }
-  return _client;
-}
-
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
   content: string;
@@ -47,45 +7,175 @@ export type ChatMessage = {
 
 /**
  * Stream a chat completion from the configured LLM provider.
- * Returns an async iterable of content tokens.
+ * Automatically tries OpenRouter, then falls back to Groq, and finally OpenAI.
  */
 export async function* streamChat(
   messages: ChatMessage[],
   opts?: { maxTokens?: number }
 ): AsyncGenerator<string, void, undefined> {
-  const client = getClient();
-  const stream = await client.chat.completions.create({
-    model: _modelName,
-    messages,
-    stream: true,
-    max_tokens: opts?.maxTokens ?? 1024,
-    temperature: 0.7,
-  });
+  const openrouterKey = process.env.OPENROUTER_API_KEY;
+  const groqKey = process.env.GROQ_API_KEY;
+  const openaiKey = process.env.OPENAI_API_KEY;
 
-  for await (const chunk of stream) {
-    const content = chunk.choices[0]?.delta?.content;
-    if (content) {
-      yield content;
+  // 1. Try OpenRouter
+  if (openrouterKey) {
+    try {
+      console.log("[ai] Trying OpenRouter stream...");
+      const client = new OpenAI({
+        apiKey: openrouterKey,
+        baseURL: "https://openrouter.ai/api/v1",
+        defaultHeaders: {
+          "HTTP-Referer": "http://localhost:5173",
+          "X-Title": "Smart Bharat",
+        },
+      });
+      const model = process.env.AI_MODEL || "openrouter/free";
+      const stream = await client.chat.completions.create({
+        model,
+        messages,
+        stream: true,
+        max_tokens: opts?.maxTokens ?? 1024,
+        temperature: 0.7,
+      });
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) yield content;
+      }
+      return; // Succeeded
+    } catch (err) {
+      console.warn("[ai] OpenRouter stream failed, falling back to Groq...", err);
     }
   }
+
+  // 2. Try Groq
+  if (groqKey) {
+    try {
+      console.log("[ai] Trying Groq stream...");
+      const client = new OpenAI({
+        apiKey: groqKey,
+        baseURL: "https://api.groq.com/openai/v1",
+      });
+      const model = "llama-3.3-70b-versatile";
+      const stream = await client.chat.completions.create({
+        model,
+        messages,
+        stream: true,
+        max_tokens: opts?.maxTokens ?? 1024,
+        temperature: 0.7,
+      });
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) yield content;
+      }
+      return; // Succeeded
+    } catch (err) {
+      console.warn("[ai] Groq stream failed, falling back to OpenAI...", err);
+    }
+  }
+
+  // 3. Try OpenAI
+  if (openaiKey) {
+    try {
+      console.log("[ai] Trying OpenAI stream...");
+      const client = new OpenAI({ apiKey: openaiKey });
+      const model = "gpt-4o-mini";
+      const stream = await client.chat.completions.create({
+        model,
+        messages,
+        stream: true,
+        max_tokens: opts?.maxTokens ?? 1024,
+        temperature: 0.7,
+      });
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) yield content;
+      }
+      return; // Succeeded
+    } catch (err) {
+      console.error("[ai] OpenAI stream failed:", err);
+    }
+  }
+
+  throw new Error("All AI stream providers failed or no keys are configured.");
 }
 
 /**
  * Non-streaming chat completion (for single-shot tasks like complaint categorization).
+ * Automatically tries OpenRouter, then falls back to Groq, and finally OpenAI.
  */
 export async function chatCompletion(
   messages: ChatMessage[],
   opts?: { maxTokens?: number }
 ): Promise<string> {
-  const client = getClient();
-  const response = await client.chat.completions.create({
-    model: _modelName,
-    messages,
-    max_tokens: opts?.maxTokens ?? 512,
-    temperature: 0.3,
-  });
+  const openrouterKey = process.env.OPENROUTER_API_KEY;
+  const groqKey = process.env.GROQ_API_KEY;
+  const openaiKey = process.env.OPENAI_API_KEY;
 
-  return response.choices[0]?.message?.content ?? "";
+  // 1. Try OpenRouter
+  if (openrouterKey) {
+    try {
+      console.log("[ai] Trying OpenRouter completion...");
+      const client = new OpenAI({
+        apiKey: openrouterKey,
+        baseURL: "https://openrouter.ai/api/v1",
+        defaultHeaders: {
+          "HTTP-Referer": "http://localhost:5173",
+          "X-Title": "Smart Bharat",
+        },
+      });
+      const model = process.env.AI_MODEL || "openrouter/free";
+      const response = await client.chat.completions.create({
+        model,
+        messages,
+        max_tokens: opts?.maxTokens ?? 512,
+        temperature: 0.3,
+      });
+      return response.choices[0]?.message?.content ?? "";
+    } catch (err) {
+      console.warn("[ai] OpenRouter completion failed, falling back to Groq...", err);
+    }
+  }
+
+  // 2. Try Groq
+  if (groqKey) {
+    try {
+      console.log("[ai] Trying Groq completion...");
+      const client = new OpenAI({
+        apiKey: groqKey,
+        baseURL: "https://api.groq.com/openai/v1",
+      });
+      const model = "llama-3.3-70b-versatile";
+      const response = await client.chat.completions.create({
+        model,
+        messages,
+        max_tokens: opts?.maxTokens ?? 512,
+        temperature: 0.3,
+      });
+      return response.choices[0]?.message?.content ?? "";
+    } catch (err) {
+      console.warn("[ai] Groq completion failed, falling back to OpenAI...", err);
+    }
+  }
+
+  // 3. Try OpenAI
+  if (openaiKey) {
+    try {
+      console.log("[ai] Trying OpenAI completion...");
+      const client = new OpenAI({ apiKey: openaiKey });
+      const model = "gpt-4o-mini";
+      const response = await client.chat.completions.create({
+        model,
+        messages,
+        max_tokens: opts?.maxTokens ?? 512,
+        temperature: 0.3,
+      });
+      return response.choices[0]?.message?.content ?? "";
+    } catch (err) {
+      console.error("[ai] OpenAI completion failed:", err);
+    }
+  }
+
+  throw new Error("All AI completion providers failed or no keys are configured.");
 }
 
 /**
