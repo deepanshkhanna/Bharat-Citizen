@@ -17,7 +17,7 @@ dist-ssr
 *.local
 
 # SQLite database
-data/
+/data/
 
 # Wrangler / Cloudflare
 .wrangler/
